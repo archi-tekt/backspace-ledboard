@@ -2,6 +2,7 @@
 #define ARRAY_Y_SIZE	16
 
 #include <avr/io.h>
+#include <avr/interrupt.h>
 
 enum draw_type {
 	DRAW_TYPE_SET,
@@ -31,7 +32,15 @@ void led_array_data_toggle(uint8_t x, uint8_t y, uint8_t data)
 
 }
 
-void ISR_timer
+ISR(TIMER0_OVF_vect)
 {
+	uint8_t x, y;
+
+	for (y = 0; y < 16; y++) {
+		for (x = 0; x < 96; x++) {
+
+		}
+	}
+
 
 }

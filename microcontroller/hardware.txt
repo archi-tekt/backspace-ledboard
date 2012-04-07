@@ -1,0 +1,5 @@
+PORTD, 4: bits, shift register
+PORTB, 1: clock signal
+(PORTC & 0xF0) | i: line
+PORTC, 4: out enable he
+
