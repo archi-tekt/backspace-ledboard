@@ -58,10 +58,10 @@ MCU_TARGET     = atmega168
 # Type: avrdude -c ?
 # to get a full listing.
 #
-AVRDUDE_PROGRAMMER = stk200
+AVRDUDE_PROGRAMMER = avrispmkII
 
 # com1 = serial port. Use lpt1 to connect to parallel port.
-AVRDUDE_PORT = lpt1    # programmer connected to serial device
+AVRDUDE_PORT = usb    # programmer connected to serial device
 
 AVRDUDE_WRITE_FLASH = -U flash:w:$(PRG).hex
 #AVRDUDE_WRITE_EEPROM = -U eeprom:w:$(PRG).eep
@@ -85,6 +85,7 @@ AVRDUDE_FLAGS = -p $(MCU_TARGET) -P $(AVRDUDE_PORT) -c $(AVRDUDE_PROGRAMMER)
 AVRDUDE_FLAGS += $(AVRDUDE_NO_VERIFY)
 AVRDUDE_FLAGS += $(AVRDUDE_VERBOSE)
 AVRDUDE_FLAGS += $(AVRDUDE_ERASE_COUNTER)
+AVRDUDE_FLAGS += -B 10
 
 MSG_SIZE_BEFORE = Size before: 
 MSG_SIZE_AFTER = Size after:
@@ -109,8 +110,6 @@ override LDFLAGS       = -Wl,-Map,$(PRG).map
 OBJCOPY        = avr-objcopy
 OBJDUMP        = avr-objdump
 
-all: sizebefore $(PRG).elf lst text sizeafter
-#eeprom
 
 $(PRG).elf: $(OBJ)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
@@ -198,15 +197,15 @@ eps: $(PRG).eps
 png: $(PRG).png
 pdf: $(PRG).pdf
 
-ELFSIZE = $(SIZE) --format=avr $(PRG).elf
+#ELFSIZE = $(SIZE) --format=avr $(PRG).elf
 
-sizebefore:
-	@if test -f $(PRG).elf; then echo; echo $(MSG_SIZE_BEFORE); $(ELFSIZE); \
-	2>/dev/null; echo; fi
+#sizebefore:
+#	@if test -f $(PRG).elf; then echo; echo $(MSG_SIZE_BEFORE); $(ELFSIZE); \
+#	2>/dev/null; echo; fi
 
-sizeafter:
-	@if test -f $(PRG).elf; then echo; echo $(MSG_SIZE_AFTER); $(ELFSIZE); \
-	2>/dev/null; echo; fi
+#sizeafter:
+#	@if test -f $(PRG).elf; then echo; echo $(MSG_SIZE_AFTER); $(ELFSIZE); \
+#	2>/dev/null; echo; fi
 
 %.eps: %.fig
 	$(FIG2DEV) -L eps $< $@

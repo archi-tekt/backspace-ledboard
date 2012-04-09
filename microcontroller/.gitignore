@@ -6,4 +6,4 @@
 *.map
 *.o
 *.srec
-nbproject/private/*
+nbproject
