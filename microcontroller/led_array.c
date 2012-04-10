@@ -4,6 +4,11 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
+#define toggle(port,pin) ((port = port ^ (1 << pin)))
+#define set(port,pin) ((port |= 1 << pin))
+#define clear(port,pin) ((port &= ~(1 << pin)) )
+#define get(port,pin) (((port >> pin) & 1))
+
 enum draw_type {
 	DRAW_TYPE_SET,
 	DRAW_TYPE_CLEAR,
