@@ -1,0 +1,6 @@
+* Multiplexer auf kleinen Platine oben ist kaputt
+	74HC138N
+* Darlingtransistor
+	TIP127
+
+* SN74HC245N

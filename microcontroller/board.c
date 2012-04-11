@@ -7,7 +7,6 @@ void init ()
 	/* disable interrupts */
 	cli();
 
-
 	/* set outputs */
 	/* LINE_A */
 	DDRC |= 1;
@@ -33,6 +32,7 @@ void init ()
 	/* SCK */
 	DDRB |= 1 << 1;
 
+#if 0
 	/* setup timer 0 */
 	/* prescaler 256 */
 	TCCR0B = 4;
@@ -41,22 +41,19 @@ void init ()
 	TCNT0 = 0xFF;
 
 	TIMSK0 = 1;
+#endif
 
 	sei();
 }
 
 int main()
 {
-	int i;
-
 	/* init hw */
 	init();
 
 	/* remaining stuff is irq driven */
-	while (1);
-
-	for (i = 0; i < 10; ++i) {
-		asm volatile("nop");
+	while (1) {
+		led_array_all_on();
 	}
 
 	return 0;
