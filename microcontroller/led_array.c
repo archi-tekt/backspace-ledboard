@@ -48,12 +48,24 @@ void led_array_data_toggle(uint8_t x, uint8_t y, uint8_t data)
 
 }
 
+static uint8_t greyscale_counter;
+
+static __attribute__((always_inline)) void led_array_output_bit (uint8_t grey) 
+{
+	if (greyscale_counter < grey)
+		OUTPUT_CLEAR(OUTPUT_PORT_BITS, OUTPUT_PIN_BITS);
+	else
+		OUTPUT_SET(OUTPUT_PORT_BITS, OUTPUT_PIN_BITS);
+
+} 
+
 /*
 ISR (TIMER0_OVF_vect)
  */
 void led_array_all_on()
 {
 	uint8_t y, x, j;
+
 	//unsigned short shift;
 	//cli();
 
@@ -81,7 +93,22 @@ void led_array_all_on()
 			else
 				OUTPUT_SET(PORTD, 4);
 #endif
-			OUTPUT_BITS(1);
+			if (y == 2)
+				/* 0% grey */
+				led_array_output_bit(0);
+			else if (y == 3)
+				/* 25% grey*/
+				led_array_output_bit(1);
+			else if (y == 4)
+				/* 50% grey */
+				led_array_output_bit(2);
+			else if (y == 5)
+				/* 75% */
+				led_array_output_bit(3);
+			else
+				/* 100% red :) */
+				led_array_output_bit(4);
+
 
 			/* clock high */
 			OUTPUT_CLOCK(1);
@@ -117,6 +144,8 @@ void led_array_all_on()
 	}
 #endif
 	ASM_DELAY(j, 255);
+	greyscale_counter++;
+	greyscale_counter %= 3;
 
 	/* disable output */
 	OUTPUT_ENABLE(0);
