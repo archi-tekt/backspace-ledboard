@@ -1,13 +1,24 @@
 #define ARRAY_X_SIZE	96
 #define ARRAY_Y_SIZE	16
 
+#include "defines.h"
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#define toggle(port,pin) ((port = port ^ (1 << pin)))
-#define set(port,pin) ((port |= 1 << pin))
-#define clear(port,pin) ((port &= ~(1 << pin)) )
-#define get(port,pin) (((port >> pin) & 1))
+/* why macros, see:
+ * http://projects.bckspc.de/trac/ledboard/wiki/StructMacroInlineConsiderations
+ */
+
+#define OUTPUT_LINE_SET(line)	(OUTPUT_PORT_LINE = ((OUTPUT_PORT_LINE & \
+	~OUTPUT_MASK_LINE) | (line & OUTPUT_MASK_LINE))) 
+#define OUTPUT_ENABLE(on)	{if(on) OUTPUT_SET(OUTPUT_PORT_ENABLE, OUTPUT_PIN_ENABLE ); \
+	else OUTPUT_CLEAR(OUTPUT_PORT_ENABLE, OUTPUT_PIN_ENABLE);}
+#define OUTPUT_CLOCK(on)	{if(on) OUTPUT_SET(OUTPUT_PORT_CLOCK, OUTPUT_PIN_CLOCK); \
+	else OUTPUT_CLEAR(OUTPUT_PORT_CLOCK, OUTPUT_PIN_CLOCK);}
+/* bits are low active */
+#define OUTPUT_BITS(on)		{if(on) OUTPUT_CLEAR(OUTPUT_PORT_BITS, OUTPUT_PIN_BITS); \
+	else OUTPUT_SET(OUTPUT_PORT_BITS, OUTPUT_PIN_BITS);}
+#define OUTPUT_STORE_TOGGLE()	(OUTPUT_TOGGLE(OUTPUT_PORT_STORE, OUTPUT_PIN_STORE))
 
 enum draw_type {
 	DRAW_TYPE_SET,
@@ -39,86 +50,76 @@ void led_array_data_toggle(uint8_t x, uint8_t y, uint8_t data)
 
 /*
 ISR (TIMER0_OVF_vect)
-*/
+ */
 void led_array_all_on()
 {
-        unsigned char i = 0, t, j;
-        unsigned short shift;
-        //cli();
+	uint8_t y, x, j;
+	//unsigned short shift;
+	//cli();
 
 #if 0
-        TIMSK0 = 0;
-        //sei();
+	TIMSK0 = 0;
+	//sei();
 
-        TCNT0 = 0xd5;
+	TCNT0 = 0xd5;
 #endif
-        /* disable output */
-        clear ( PORTC, 4 );
+	/* disable output */
+	OUTPUT_ENABLE(0);
 
-        /* set line 0 */
-        PORTC = (PORTC & 0xF0);
+	/* set line 0 */
+	OUTPUT_LINE_SET(0);
 
-        for ( i = 0; i < ARRAY_Y_SIZE; i++ )
-        {
-                shift = 1 << i;
-                for ( t = 0; t < ARRAY_X_SIZE; t++ )
-                {
-                        /* clock low */
-                        clear ( PORTB, 1 );
+	for (y = 0; y < ARRAY_Y_SIZE; y++) {
+		//shift = 1 << y;
+		for (x = 0; x < ARRAY_X_SIZE; x++) {
+			/* clock low */
+			OUTPUT_CLOCK(0);
 #if 0
-                        /* update bits */
-                        if ( frame_buffer[t] & shift )
-                                clear ( PORTD, 4 );
-                        else
-                                set ( PORTD, 4 );
+			/* update bits */
+			if (frame_buffer[t] & shift)
+				OUTPUT_CLEAR(PORTD, 4);
+			else
+				OUTPUT_SET(PORTD, 4);
 #endif
-			clear ( PORTD, 4 );
+			OUTPUT_BITS(1);
 
-                        /* clock high */
-                        set ( PORTB, 1 );
+			/* clock high */
+			OUTPUT_CLOCK(1);
 
-                }
-
-                /* enable output */
-                set ( PORTC, 4 );
-
-                /* let the leds bright for some time */
-                for ( t = 0; t < 10; t++ )
-                        asm volatile ( "nop" );
-
-                /* save? str */
-                toggle( PORTC, 5 );
-                toggle( PORTC, 5 );
-
-		/* change line */
-                PORTC = (PORTC & 0xF0) | i;
-
-                /* disable output */
-                clear ( PORTC, 4 );
-
-		for ( t = 0; t < 10; t++ )
-			asm volatile ( "nop" );
-                for ( t = 0; t < 10; t++ ) {
-			asm volatile ( "nop" );
 		}
-      }
 
-#if 0
-        /* change buffers */
-        if ( update_request )
-        {
-                update_request = 0;
-                for ( i = 0; i < 96; i++ )
-                        frame_buffer[i] = frame[i];
-        }
-#endif
-        for ( t = 0; t < 255; t++ ) {
-                asm volatile ( "nop" );
+		/* enable output */
+		OUTPUT_ENABLE(1);
 
+		/* let the leds bright for some time */
+		ASM_DELAY(j, 10);
+
+		/* save? str */
+		OUTPUT_STORE_TOGGLE();
+		OUTPUT_STORE_TOGGLE();
+
+		/* change line; if not done here old line is still bright a bit */
+		OUTPUT_LINE_SET(y);
+
+		/* disable output */
+		OUTPUT_ENABLE(0);
+
+		ASM_DELAY(j, 10);
+		ASM_DELAY(j, 10);
 	}
 
-	/* disable output */
-        set ( PORTC, 4 );
+#if 0
+	/* change buffers */
+	if (update_request) {
+		update_request = 0;
+		for (i = 0; i < 96; i++)
+			frame_buffer[i] = frame[i];
+	}
+#endif
+	ASM_DELAY(j, 255);
 
-//        TIMSK0 = 1;
+	/* disable output */
+	OUTPUT_ENABLE(0);
+
+	//TIMSK0 = 1;
 }
