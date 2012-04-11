@@ -115,13 +115,7 @@ $(PRG).elf: $(OBJ)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 # dependency:
-ledBoard.o: ledBoard.c pixel.c font.c keyb.c utils.c
-pixel.o: pixel.c
-font.o: font.c
-keyb.o: keyb.c
-utils.o: utils.c
-eeprom.o: eeprom.c
-menu.o: menu.c
+
 
 clean:
 	rm -rf *.o $(PRG).elf *.eps *.png *.pdf *.bak 
