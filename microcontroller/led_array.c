@@ -5,19 +5,15 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-/* why macros, see:
+/*
+ * why macros, see:
  * http://projects.bckspc.de/trac/ledboard/wiki/StructMacroInlineConsiderations
  */
 
-#define OUTPUT_LINE_SET(line)	(OUTPUT_PORT_LINE = ((OUTPUT_PORT_LINE & \
-	~OUTPUT_MASK_LINE) | (line & OUTPUT_MASK_LINE))) 
 #define OUTPUT_ENABLE(on)	{if(on) OUTPUT_SET(OUTPUT_PORT_ENABLE, OUTPUT_PIN_ENABLE ); \
 	else OUTPUT_CLEAR(OUTPUT_PORT_ENABLE, OUTPUT_PIN_ENABLE);}
 #define OUTPUT_CLOCK(on)	{if(on) OUTPUT_SET(OUTPUT_PORT_CLOCK, OUTPUT_PIN_CLOCK); \
 	else OUTPUT_CLEAR(OUTPUT_PORT_CLOCK, OUTPUT_PIN_CLOCK);}
-/* bits are low active */
-#define OUTPUT_BITS(on)		{if(on) OUTPUT_CLEAR(OUTPUT_PORT_BITS, OUTPUT_PIN_BITS); \
-	else OUTPUT_SET(OUTPUT_PORT_BITS, OUTPUT_PIN_BITS);}
 #define OUTPUT_STORE_TOGGLE()	(OUTPUT_TOGGLE(OUTPUT_PORT_STORE, OUTPUT_PIN_STORE))
 
 enum draw_type {
@@ -26,38 +22,67 @@ enum draw_type {
 	DRAW_TYPE_TOGGLE
 };
 
-static uint8_t buffer[2][ARRAY_X_SIZE / 8 * ARRAY_Y_SIZE ];
+/*
+ * buffer arrangement:
+ * - with 4 colors, we need 2 bits per pixel
+ * - right side of board is where µC is located
+ * - buffer starts with top (row 0) most left pixel (2 bits)
+ * - next is the second pixel from left (still row 0)
+ * 
+ * - double buffering, data is written to backbuffer while read
+ *   is done on frontbuffer
+ * 
+ * TODO: buffer needs to be read-accessed very fast, if needed -> rearrange
+ */
+static uint8_t buffer[2][ARRAY_X_SIZE * ARRAY_Y_SIZE * 2 / 8];
 static uint8_t active_buffer;
 
+/*
+ * switch backbuffer to frontend buffer
+ */
 void led_array_swap_buffer()
 {
+	active_buffer ^= 1;
 }
 
-void led_array_bit_set(uint8_t x, uint8_t y, enum draw_type type)
+/*
+ * set a LED in backbuffer
+ */
+void led_array_backbuffer_bit_set(uint8_t x, uint8_t y, uint8_t color)
 {
+	uint16_t y_offset = y * ARRAY_X_SIZE * 2 / 8;
+	uint8_t x_offset = x * 2 / 8;
+	uint8_t x_shift = (6 - ((x * 2) % 8));
 
+	uint8_t val = buffer[active_buffer^1][y_offset + x_offset];
+	val &= ~(3 << x_shift);
+	val |= (color & 3) << x_shift;
+
+	buffer[active_buffer^1][y_offset + x_offset] = val;
 }
 
-void led_array_data_set(uint8_t x, uint8_t y, uint8_t data)
-{
-
-}
-
-void led_array_data_toggle(uint8_t x, uint8_t y, uint8_t data)
-{
-
-}
 
 static uint8_t greyscale_counter;
 
-static __attribute__((always_inline)) void led_array_output_bit (uint8_t grey) 
+/*
+ * set bit in shift register
+ * output is low active
+ */
+static __attribute__((always_inline)) void led_array_output_bit(uint8_t color)
 {
-	if (greyscale_counter < grey)
+	if (greyscale_counter < color)
 		OUTPUT_CLEAR(OUTPUT_PORT_BITS, OUTPUT_PIN_BITS);
 	else
 		OUTPUT_SET(OUTPUT_PORT_BITS, OUTPUT_PIN_BITS);
 
-} 
+}
+
+static __attribute__((always_inline)) void led_array_output_line(uint8_t line)
+{
+	OUTPUT_PORT_LINE = (OUTPUT_PORT_LINE & ~OUTPUT_MASK_LINE) |
+		(line & OUTPUT_MASK_LINE);
+
+}
 
 /*
 ISR (TIMER0_OVF_vect)
@@ -79,7 +104,7 @@ void led_array_all_on()
 	OUTPUT_ENABLE(0);
 
 	/* set line 0 */
-	OUTPUT_LINE_SET(0);
+	led_array_output_line(0);
 
 	for (y = 0; y < ARRAY_Y_SIZE; y++) {
 		//shift = 1 << y;
@@ -97,17 +122,14 @@ void led_array_all_on()
 				/* 0% grey */
 				led_array_output_bit(0);
 			else if (y == 3)
-				/* 25% grey*/
+				/* 33% grey*/
 				led_array_output_bit(1);
 			else if (y == 4)
-				/* 50% grey */
+				/* 66% grey */
 				led_array_output_bit(2);
-			else if (y == 5)
-				/* 75% */
-				led_array_output_bit(3);
 			else
 				/* 100% red :) */
-				led_array_output_bit(4);
+				led_array_output_bit(3);
 
 
 			/* clock high */
@@ -126,7 +148,7 @@ void led_array_all_on()
 		OUTPUT_STORE_TOGGLE();
 
 		/* change line; if not done here old line is still bright a bit */
-		OUTPUT_LINE_SET(y);
+		led_array_output_line(y);
 
 		/* disable output */
 		OUTPUT_ENABLE(0);
@@ -145,9 +167,11 @@ void led_array_all_on()
 #endif
 	ASM_DELAY(j, 255);
 	greyscale_counter++;
+
+	/* TODO: check if %4 is more efficient */
 	greyscale_counter %= 3;
 
-	/* disable output */
+	/* disable output; fail? is disabled already? */
 	OUTPUT_ENABLE(0);
 
 	//TIMSK0 = 1;

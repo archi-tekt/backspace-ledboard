@@ -17,6 +17,9 @@
 	6) 
 	
 	modify buffer directly or after command complete?
+	TODO: backbuffer stream mode (less overhead for calc pos
+ *		and serial data)
+ *	TODO: replies on success/error? / checksum needed?
  */
 
 enum commands {
