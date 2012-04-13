@@ -118,6 +118,7 @@ void led_array_all_on()
 			else
 				OUTPUT_SET(PORTD, 4);
 #endif
+#if 0
 			if (y == 2)
 				/* 0% grey */
 				led_array_output_bit(0);
@@ -130,6 +131,8 @@ void led_array_all_on()
 			else
 				/* 100% red :) */
 				led_array_output_bit(3);
+#endif
+				led_array_output_bit( y );
 
 
 			/* clock high */
@@ -169,7 +172,8 @@ void led_array_all_on()
 	greyscale_counter++;
 
 	/* TODO: check if %4 is more efficient */
-	greyscale_counter %= 3;
+	if ( greyscale_counter == 16 )
+		greyscale_counter = 0;
 
 	/* disable output; fail? is disabled already? */
 	OUTPUT_ENABLE(0);
