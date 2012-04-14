@@ -1,8 +1,8 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
-//#include "serial.h"
+#include "led_array.h"
 
-void init ()
+void init()
 {
 	/* disable interrupts */
 	cli();
@@ -52,10 +52,10 @@ int main()
 	init();
 
 	/* remaining stuff is irq driven */
+	uart_test();
 	while (1) {
-		led_array_all_on();
+		led_array_draw();
 	}
 
 	return 0;
 }
-

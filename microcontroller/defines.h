@@ -42,8 +42,4 @@
 #define OUTPUT_PIN_STORE        PINC5
 #define OUTPUT_MASK_LINE        0x0F
 
-
-
-
 #endif	/* DEFINES_H */
-
