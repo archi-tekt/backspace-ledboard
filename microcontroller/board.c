@@ -48,6 +48,8 @@ void init()
 
 int main()
 {
+	int i;
+
 	/* init hw */
 	init();
 

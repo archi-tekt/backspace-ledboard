@@ -97,7 +97,8 @@ void uart_test()
 
 	test.cmd.header = 0x7F;
 	test.cmd.cmd = CMD_SET;
-	test.cmd.pos_x = test.cmd.pos_y = 10;
+	test.cmd.pos_x = 2;
+	test.cmd.pos_y = 2;
 	test.cmd.color = 3;
 
 	for (i = 0; i < sizeof(test.plain); i++)

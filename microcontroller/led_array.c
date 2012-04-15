@@ -10,8 +10,6 @@
  * why macros, see:
  * http://projects.bckspc.de/trac/ledboard/wiki/StructMacroInlineConsiderations
  */
-#define OUTPUT_ENABLE(on)	{if(on) OUTPUT_SET(OUTPUT_PORT_ENABLE, OUTPUT_PIN_ENABLE ); \
-	else OUTPUT_CLEAR(OUTPUT_PORT_ENABLE, OUTPUT_PIN_ENABLE);}
 #define OUTPUT_CLOCK(on)	{if(on) OUTPUT_SET(OUTPUT_PORT_CLOCK, OUTPUT_PIN_CLOCK); \
 	else OUTPUT_CLEAR(OUTPUT_PORT_CLOCK, OUTPUT_PIN_CLOCK);}
 #define OUTPUT_STORE_TOGGLE()	(OUTPUT_TOGGLE(OUTPUT_PORT_STORE, OUTPUT_PIN_STORE))
@@ -49,9 +47,11 @@ void led_array_backbuffer_bit_set(uint8_t x, uint8_t y, uint8_t color)
 	uint8_t x_shift = (6 - ((x * 2) % 8));
 
 	uint8_t val = buffer[active_buffer^1][y][x_offset];
+	/* clear colour of pixel */
 	val &= ~(3 << x_shift);
+	/* set color of pixel */
 	val |= (color & 3) << x_shift;
-
+	/* write value back */
 	buffer[active_buffer^1][y][x_offset] = val;
 }
 
@@ -60,10 +60,22 @@ void led_array_backbuffer_bit_set(uint8_t x, uint8_t y, uint8_t color)
  */
 static __attribute__((always_inline)) uint8_t led_array_frontbuffer_bit_get(uint8_t x, uint8_t y)
 {
-	uint8_t x_offset = x * 2 / 8;
-	uint8_t x_shift = (6 - ((x * 2) % 8));
+	uint8_t x_offset = x >> 2; /* was: (x * 2) / 8 */
+//	uint8_t x_shift = (6 - ((x * 2) % 8));
+	uint8_t x_shift = 2;
 
-	return buffer[active_buffer][y][x_offset] >> x_shift;
+	uint8_t val = buffer[active_buffer][y][x_offset];
+	val >>= x_shift;
+
+	return val & 3;
+}
+
+static __attribute__((always_inline)) void led_array_output_enable(uint8_t on)
+{
+	if (on)
+		OUTPUT_CLEAR(OUTPUT_PORT_ENABLE, OUTPUT_PIN_ENABLE);
+	else
+		OUTPUT_SET(OUTPUT_PORT_ENABLE, OUTPUT_PIN_ENABLE);
 }
 
 static uint8_t greyscale_counter;
@@ -94,73 +106,30 @@ static __attribute__((always_inline)) void led_array_output_line(uint8_t line)
 
 void led_array_draw()
 {
-	uint8_t y, x, j;
+	uint8_t y, x;
 	uint8_t color;
 
-	//unsigned short shift;
-	//cli();
-
-#if 0
-	TIMSK0 = 0;
-	//sei();
-
-	TCNT0 = 0xd5;
-#endif
-	/* disable output */
-	OUTPUT_ENABLE(0);
-
-	/* set line 0 */
-	led_array_output_line(0);
+	/* enable output */
+	led_array_output_enable(1);
 
 	for (y = 0; y < ARRAY_Y_SIZE; y++) {
 		//shift = 1 << y;
 		for (x = 0; x < ARRAY_X_SIZE; x++) {
 			/* clock low */
 			OUTPUT_CLOCK(0);
-#if 0
-			/* update bits */
-			if (frame_buffer[t] & shift)
-				OUTPUT_CLEAR(PORTD, 4);
-			else
-				OUTPUT_SET(PORTD, 4);
-			if (y == 2)
-				/* 0% grey */
-				led_array_output_bit(0);
-			else if (y == 3)
-				/* 33% grey*/
-				led_array_output_bit(1);
-			else if (y == 4)
-				/* 66% grey */
-				led_array_output_bit(2);
-			else
-				/* 100% red :) */
-				led_array_output_bit(3);
-#endif
+
 			color = led_array_frontbuffer_bit_get(x, y);
 			led_array_output_bit(color);
 
 			/* clock high */
 			OUTPUT_CLOCK(1);
 		}
-
-		/* enable output */
-		OUTPUT_ENABLE(1);
-
-		/* let the leds bright for some time */
-		ASM_DELAY(j, 10);
-
-		/* save? str */
-		OUTPUT_STORE_TOGGLE();
-		OUTPUT_STORE_TOGGLE();
-
 		/* change line; if not done here old line is still bright a bit */
 		led_array_output_line(y);
 
-		/* disable output */
-		OUTPUT_ENABLE(0);
-
-		ASM_DELAY(j, 10);
-		ASM_DELAY(j, 10);
+		/* let shift registers output */
+		OUTPUT_STORE_TOGGLE();
+		OUTPUT_STORE_TOGGLE();
 	}
 
 	/* change buffers */
@@ -169,15 +138,11 @@ void led_array_draw()
 		active_buffer ^= 1;
 	}
 
-	ASM_DELAY(j, 255);
 	greyscale_counter++;
 
 	/* TODO: check if %4 is more efficient */
 	if (greyscale_counter == 16)
 		greyscale_counter = 0;
 
-	/* disable output; fail? is disabled already? */
-	OUTPUT_ENABLE(0);
-
-	//TIMSK0 = 1;
+	led_array_output_enable(0);
 }
