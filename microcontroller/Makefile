@@ -92,7 +92,7 @@ MSG_SIZE_AFTER = Size after:
 SIZE = avr-size
 
 
-OPTIMIZE       = -Os
+OPTIMIZE       = -O2 
 
 DEFS           =
 LIBS           =

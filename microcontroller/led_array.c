@@ -44,7 +44,7 @@ void led_array_swap_buffer()
 void led_array_backbuffer_bit_set(uint8_t x, uint8_t y, uint8_t color)
 {
 	uint8_t x_offset = x * 2 / 8;
-	uint8_t x_shift = (6 - ((x * 2) % 8));
+	uint8_t x_shift = (((x * 2) % 8));
 
 	uint8_t val = buffer[active_buffer^1][y][x_offset];
 	/* clear colour of pixel */
@@ -58,13 +58,13 @@ void led_array_backbuffer_bit_set(uint8_t x, uint8_t y, uint8_t color)
 /**
  * led_array_frontbuffer_bit_get() - get color of pixel
  */
-static __attribute__((always_inline)) uint8_t led_array_frontbuffer_bit_get(uint8_t x, uint8_t y)
+static __attribute__((always_inline)) uint8_t led_array_frontbuffer_bit_get(uint8_t x, uint8_t *line_data)
 {
 	uint8_t x_offset = x >> 2; /* was: (x * 2) / 8 */
-//	uint8_t x_shift = (6 - ((x * 2) % 8));
-	uint8_t x_shift = 2;
+	uint8_t x_shift = (6 - ((x *2) % 8));
+//	uint8_t x_shift = 2;
 
-	uint8_t val = buffer[active_buffer][y][x_offset];
+	uint8_t val = line_data[x_offset];
 	val >>= x_shift;
 
 	return val & 3;
@@ -104,22 +104,90 @@ static __attribute__((always_inline)) void led_array_output_line(uint8_t line)
 		(line & OUTPUT_MASK_LINE);
 }
 
+const uint8_t lut[] = {0,1,5,0xF};
+
+static __attribute__((always_inline)) uint8_t led_array_map_color (uint8_t color)
+{
+	//return lut[color];
+	return color << 2;
+
+	switch ( color ) {
+	case 0:
+		return 0;
+	case 1:
+		return 3;
+	case 2:
+		return 7;
+	case 3:
+		return 0xF;
+	default:
+		return 7;
+	}
+}
+
 void led_array_draw()
 {
 	uint8_t y, x;
 	uint8_t color;
+	uint8_t *current_line;
+	uint8_t x_byte;
+	uint8_t x_shift;
+	uint8_t tmp;
 
 	/* enable output */
 	led_array_output_enable(1);
 
+	//(buffer + active_buffer)
+	//uint8_t **cur_buffer = buffer[active_buffer];
+
 	for (y = 0; y < ARRAY_Y_SIZE; y++) {
 		//shift = 1 << y;
+				current_line = buffer[active_buffer][y];
+		//current_line = cur_buffer[y];
+		x_byte = 0;
+		x_shift = 0;
+		tmp = *current_line;
+		//tmp = 0x55;
 		for (x = 0; x < ARRAY_X_SIZE; x++) {
 			/* clock low */
 			OUTPUT_CLOCK(0);
 
-			color = led_array_frontbuffer_bit_get(x, y);
+			//color = *current_line++;
+			//color = led_array_frontbuffer_bit_get(x, current_line);
+	//		asm volatile ( "nop" );
+			
+			color = lut[ (tmp) & 3 ];
+			tmp >>= 2;
+			//color = y;
+			//color = lut[color]; //led_array_map_color(color);
+			//color = 1;
 			led_array_output_bit(color);
+
+			
+			if ( x_shift == 3 ) {
+
+				current_line++;
+				//asm volatile ( "nop" );
+				tmp = *current_line;
+				x_shift = 0;
+			} else
+				x_shift++;
+
+#if 0
+			if ( x_shift ) {
+				//x_byte++;
+				//current_line++;
+				//x_shift = 6;
+				x_shift -= 2;
+			} else {
+				//x_shift -= 2;
+				current_line++;
+				tmp = 0x55; //*current_line;
+				x_shift = 6;
+			}
+#endif
+
+			
 
 			/* clock high */
 			OUTPUT_CLOCK(1);
