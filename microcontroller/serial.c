@@ -93,7 +93,7 @@ void uart_ISR()
 void uart_test()
 {
 	uint16_t i;
-	uint8_t j;
+	uint8_t j, x, y;
 	union serial_command_union test;
 
 	test.cmd.header = 0x7F;
@@ -102,12 +102,18 @@ void uart_test()
 	test.cmd.pos_y = 2;
 	test.cmd.color = 3;
 
-	for (j = 0; j < 4; j++) {
-		test.cmd.color = j;
-		for (i = 0; i < sizeof(test.plain); i++)
-			uart_handler(test.plain[i]);
-		test.cmd.pos_x++;
-		test.cmd.pos_y++;
+	for (y = 0; y < 16; y++) {
+		for (x = 0; x < 96; x++) {
+			//test.cmd.color = j;
+			for (i = 0; i < sizeof(test.plain); i++)
+				uart_handler(test.plain[i]);
+
+			test.cmd.pos_x = x;
+			test.cmd.pos_y = y;
+			test.cmd.color = (x % 4) & ((y & 1) ? 3 : 0);
+		}
+//		test.cmd.pos_x++;
+//		test.cmd.pos_y++;
 	}
 
 	test.cmd.cmd = CMD_SWAPBUFFER;

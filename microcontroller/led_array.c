@@ -44,7 +44,7 @@ void led_array_swap_buffer()
 void led_array_backbuffer_bit_set(uint8_t x, uint8_t y, uint8_t color)
 {
 	uint8_t x_offset = x * 2 / 8;
-	uint8_t x_shift = (((x * 2) % 8));
+	uint8_t x_shift = (x * 2) % 8;
 
 	uint8_t val = buffer[active_buffer^1][y][x_offset];
 	/* clear colour of pixel */
@@ -104,100 +104,57 @@ static __attribute__((always_inline)) void led_array_output_line(uint8_t line)
 		(line & OUTPUT_MASK_LINE);
 }
 
-const uint8_t lut[] = {0,1,5,0xF};
-
-static __attribute__((always_inline)) uint8_t led_array_map_color (uint8_t color)
-{
-	//return lut[color];
-	return color << 2;
-
-	switch ( color ) {
-	case 0:
-		return 0;
-	case 1:
-		return 3;
-	case 2:
-		return 7;
-	case 3:
-		return 0xF;
-	default:
-		return 7;
-	}
-}
+static const uint8_t color_mapping[] = {0,1,3,7};
 
 void led_array_draw()
 {
 	uint8_t y, x;
 	uint8_t color;
 	uint8_t *current_line;
-	uint8_t x_byte;
 	uint8_t x_shift;
 	uint8_t tmp;
-
-	/* enable output */
-	led_array_output_enable(1);
-
-	//(buffer + active_buffer)
-	//uint8_t **cur_buffer = buffer[active_buffer];
+	uint16_t wait;
 
 	for (y = 0; y < ARRAY_Y_SIZE; y++) {
-		//shift = 1 << y;
-				current_line = buffer[active_buffer][y];
-		//current_line = cur_buffer[y];
-		x_byte = 0;
+		/* less array lookups on pixel shift */
+		current_line = buffer[active_buffer][y];
+
 		x_shift = 0;
 		tmp = *current_line;
-		//tmp = 0x55;
+
 		for (x = 0; x < ARRAY_X_SIZE; x++) {
 			/* clock low */
 			OUTPUT_CLOCK(0);
 
-			//color = *current_line++;
-			//color = led_array_frontbuffer_bit_get(x, current_line);
-	//		asm volatile ( "nop" );
-			
-			color = lut[ (tmp) & 3 ];
+			color = color_mapping[(tmp) & 3];
 			tmp >>= 2;
-			//color = y;
-			//color = lut[color]; //led_array_map_color(color);
-			//color = 1;
+
 			led_array_output_bit(color);
 
-			
 			if ( x_shift == 3 ) {
-
 				current_line++;
-				//asm volatile ( "nop" );
 				tmp = *current_line;
 				x_shift = 0;
 			} else
 				x_shift++;
 
-#if 0
-			if ( x_shift ) {
-				//x_byte++;
-				//current_line++;
-				//x_shift = 6;
-				x_shift -= 2;
-			} else {
-				//x_shift -= 2;
-				current_line++;
-				tmp = 0x55; //*current_line;
-				x_shift = 6;
-			}
-#endif
-
-			
-
-			/* clock high */
+			/* clock high; shift bits */
 			OUTPUT_CLOCK(1);
 		}
-		/* change line; if not done here old line is still bright a bit */
+
+		led_array_output_enable(0);
+
+		/* minimum delay so other lines will not bright */
+		ASM_DELAY(tmp, 13);
+
+		/* change line */
 		led_array_output_line(y);
 
 		/* let shift registers output */
 		OUTPUT_STORE_TOGGLE();
 		OUTPUT_STORE_TOGGLE();
+
+		led_array_output_enable(1);
 	}
 
 	/* change buffers */
@@ -208,9 +165,11 @@ void led_array_draw()
 
 	greyscale_counter++;
 
-	/* TODO: check if %4 is more efficient */
-	if (greyscale_counter == 16)
+	if (greyscale_counter == 8)
 		greyscale_counter = 0;
 
-	led_array_output_enable(0);
+	/* last line delay, approx same time as 96 led shifts */
+	ASM_DELAY(wait,350);
+
+	led_array_output_enable(0); 
 }
