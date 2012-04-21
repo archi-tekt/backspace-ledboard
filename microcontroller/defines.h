@@ -8,7 +8,8 @@
 
 
 /* setup clock; e.g. for delay funcs needed */
-#define F_CPU   18432000
+#define F_CPU   18432000UL
+#define BAUDRATE        115200UL
 
 /* general defines for easy PORT access */
 #define OUTPUT_TOGGLE(port,pin) ((port = port ^ (1 << pin)))

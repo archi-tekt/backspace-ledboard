@@ -1,5 +1,17 @@
+#include "defines.h"
+
 #include <avr/io.h>
+#include <avr/interrupt.h>
+
 #include "led_array.h"
+
+#define UBRR_VAL ((F_CPU+BAUDRATE*8)/(BAUDRATE*16)-1)
+#define BAUD_REAL (F_CPU/(16*(UBRR_VAL+1)))
+#define BAUD_ERROR ((BAUD_REAL*1000)/BAUDRATE)
+ 
+#if ((BAUD_ERROR<990) || (BAUD_ERROR>1010))
+	#error Systematischer Fehler der Baudrate grösser 1% und damit zu hoch! 
+#endif
 
 /* start byte 0x7F
  * escape for 0x7F and 0x7E
@@ -17,6 +29,7 @@
  */
 enum commands {
 	CMD_SET,	/* set or clear a led */
+	CMD_STREAM,	/* stream command for full led buffer */
 	CMD_SWAPBUFFER  /* swap display/write buffer */
 };
 
@@ -75,16 +88,45 @@ void uart_handler(uint8_t in)
 		escape_next = 0;
 	}
 
-	current_command.plain[pos++] = in;
-	if (pos == sizeof(struct serial_command)) {
-		/* handle command */
-		serial_command_handle(&current_command.cmd);
+	if (pos >= 2) {
+		/* direct command; immediately send to handler */
+		if (current_command.cmd.cmd == CMD_STREAM) {
+			if (pos == 2) {
+				/* reset stream on first byte */
+				led_array_backbuffer_stream_rewind();
+				pos++;
+			}
+
+			led_array_backbuffer_stream_write(in);
+		} else {
+
+			/* fixed command; length given due to structure */
+			current_command.plain[pos++] = in;
+
+			if (pos == sizeof(struct serial_command)) {
+				/* handle static command */
+				serial_command_handle(&current_command.cmd);
+			}
+		}
+	} else {
+		/* just input until command byte filled */
+		current_command.plain[pos++] = in;
 	}
 }
 
-void uart_ISR()
+void uart_init()
 {
-	uart_handler(0);
+	/* set baudrate */
+	UBRR0 = UBRR_VAL;
+	
+	/* enable tx + rx, rx interrupts */
+	UCSR0B = (1 << TXEN0) | (1 << RXEN0) | (1 << RXCIE0);
+	
+}
+
+ISR(USART_RX_vect)
+{
+	uart_handler(UDR0);
 }
 
 /**

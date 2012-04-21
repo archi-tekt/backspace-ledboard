@@ -8,6 +8,10 @@
  */
 extern void led_array_swap_buffer();
 
+extern void led_array_backbuffer_stream_rewind();
+
+extern void led_array_backbuffer_stream_write(uint8_t);
+
 /**
  * led_array_backbuffer_bit_set() - set a LED in backbuffer
  * @x:		x coordinate

@@ -52,6 +52,7 @@ int main()
 
 	/* init hw */
 	init();
+	uart_init();
 
 	/* remaining stuff is irq driven */
 	uart_test();

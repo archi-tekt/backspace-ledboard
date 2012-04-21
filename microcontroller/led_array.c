@@ -41,6 +41,29 @@ void led_array_swap_buffer()
 	swap_request = 1;
 }
 
+static uint8_t stream_x;
+static uint8_t stream_y;
+
+void led_array_backbuffer_stream_rewind()
+{
+	stream_x = 0;
+	stream_y = 0;
+}
+
+void led_array_backbuffer_stream_write(uint8_t data)
+{
+	buffer[active_buffer^1][stream_y][stream_x] = data;
+
+	stream_x++;
+
+	if (stream_x == ARRAY_X_SIZE * 2 / 8) {
+		stream_x = 0;
+		stream_y++;
+		if (stream_y == ARRAY_Y_SIZE)
+			stream_y = 0;
+	}
+}
+
 void led_array_backbuffer_bit_set(uint8_t x, uint8_t y, uint8_t color)
 {
 	uint8_t x_offset = x * 2 / 8;
