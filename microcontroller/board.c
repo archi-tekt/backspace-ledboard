@@ -55,9 +55,10 @@ int main()
 	uart_init();
 
 	/* remaining stuff is irq driven */
-	uart_test();
+//	uart_test();
 	while (1) {
 		led_array_draw();
+		//UDR0 = 0xFF;
 	}
 
 	return 0;

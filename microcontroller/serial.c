@@ -28,7 +28,7 @@
  *	TODO: replies on success/error? / checksum needed?
  */
 enum commands {
-	CMD_SET,	/* set or clear a led */
+	CMD_SET = 0,	/* set or clear a led */
 	CMD_STREAM,	/* stream command for full led buffer */
 	CMD_SWAPBUFFER  /* swap display/write buffer */
 };
@@ -126,6 +126,7 @@ void uart_init()
 
 ISR(USART_RX_vect)
 {
+//	uart_test();
 	uart_handler(UDR0);
 }
 
