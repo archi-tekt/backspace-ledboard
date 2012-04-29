@@ -52,7 +52,7 @@ void led_array_backbuffer_stream_rewind()
 
 void led_array_backbuffer_stream_write(uint8_t data)
 {
-	buffer[active_buffer^1][stream_y][stream_x] = data;
+	buffer[active_buffer][stream_y][stream_x] = data;
 
 	stream_x++;
 

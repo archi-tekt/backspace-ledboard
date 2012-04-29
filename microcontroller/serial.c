@@ -93,6 +93,7 @@ void uart_init()
 
 ISR(USART_RX_vect)
 {
+//	uart_test();
 	uart_handler(UDR0);
 }
 
