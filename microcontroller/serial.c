@@ -1,9 +1,9 @@
-#include "defines.h"
-
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
+#include "../protocol/serial.h"
 #include "led_array.h"
+#include "defines.h"
 
 #define UBRR_VAL ((F_CPU+BAUDRATE*8)/(BAUDRATE*16)-1)
 #define BAUD_REAL (F_CPU/(16*(UBRR_VAL+1)))
@@ -12,39 +12,6 @@
 #if ((BAUD_ERROR<990) || (BAUD_ERROR>1010))
 	#error Systematischer Fehler der Baudrate grösser 1% und damit zu hoch! 
 #endif
-
-/* start byte 0x7F
- * escape for 0x7F and 0x7E
- * 0 = 0x7E, 1 = 0x7F */
-#define SERIAL_ESCAPE_BYTE	0x7E
-#define SERIAL_START	0x7F
-
-/* commands:
- *	0) direct commands
- *	1) swap buffers
- *	modify buffer directly or after command complete?
- *	TODO: backbuffer stream mode (less overhead for calc pos
- *		and serial data)
- *	TODO: replies on success/error? / checksum needed?
- */
-enum commands {
-	CMD_SET,	/* set or clear a led */
-	CMD_STREAM,	/* stream command for full led buffer */
-	CMD_SWAPBUFFER  /* swap display/write buffer */
-};
-
-struct serial_command {
-	uint8_t header; /* identification, always 0x7F */
-	enum commands cmd : 8;
-	uint8_t pos_x;
-	uint8_t pos_y;
-	uint8_t color;
-} __attribute__((__packed__));
-
-union serial_command_union {
-	struct serial_command cmd;
-	uint8_t plain[sizeof(struct serial_command)];
-};
 
 /**
  * serial_command_handle() - handle incoming command

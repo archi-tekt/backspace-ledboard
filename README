@@ -1,0 +1,34 @@
+                        backspace ledboard
+
+        Fancy ASCII illustration:
+
+
+                                                ________ cool stuff
+              ledloard              _________  /
+                 ___               (  space  )/
+                /  /|         ____(  network  )--------- other cool stuff
+               /__/ |        /     (_________)\
+               |  | |_______/                  \________ even more cool stuff
+               |  | /
+              _|__|/
+             |__________
+                        \
+    +------------------+ \
+    |::::::::::::::::::| /
+    |::::::::::::::::::|/
+    +------------------+
+          ledboard
+
+
+
+        Technical details:
+
+ledboard:
+    * 96 x 16 LEDs
+    *
+    *
+
+ledlord:
+    * serial communication with ledboard
+    * listens for incoming display requests on port 1337
+
