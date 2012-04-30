@@ -41,6 +41,11 @@ void led_array_swap_buffer()
 	swap_request = 1;
 }
 
+uint8_t led_array_backbuffer_free()
+{
+	return !swap_request;
+}
+
 static uint8_t stream_x;
 static uint8_t stream_y;
 
@@ -59,23 +64,12 @@ void led_array_backbuffer_stream_write(uint8_t data)
 	if (stream_x == ARRAY_X_SIZE * 2 / 8) {
 		stream_x = 0;
 		stream_y++;
-		if (stream_y == ARRAY_Y_SIZE)
+		if (stream_y == ARRAY_Y_SIZE) {
+			/* frame finished, set swap request */
 			stream_y = 0;
+			led_array_swap_buffer();
+		}
 	}
-}
-
-void led_array_backbuffer_bit_set(uint8_t x, uint8_t y, uint8_t color)
-{
-	uint8_t x_offset = x * 2 / 8;
-	uint8_t x_shift = (x * 2) % 8;
-
-	uint8_t val = buffer[active_buffer^1][y][x_offset];
-	/* clear colour of pixel */
-	val &= ~(3 << x_shift);
-	/* set color of pixel */
-	val |= (color & 3) << x_shift;
-	/* write value back */
-	buffer[active_buffer^1][y][x_offset] = val;
 }
 
 /**
@@ -85,7 +79,6 @@ static __attribute__((always_inline)) uint8_t led_array_frontbuffer_bit_get(uint
 {
 	uint8_t x_offset = x >> 2; /* was: (x * 2) / 8 */
 	uint8_t x_shift = (6 - ((x *2) % 8));
-//	uint8_t x_shift = 2;
 
 	uint8_t val = line_data[x_offset];
 	val >>= x_shift;
@@ -184,6 +177,11 @@ void led_array_draw()
 	if (swap_request) {
 		swap_request = 0;
 		active_buffer ^= 1;
+		/* Wait for empty transmit buffer */
+		while (!(UCSR0A & (1<<UDRE0)))
+			;
+		/* Put data into buffer, sends the data */
+		UDR0 = 0xFE; /* send ack to signal that backbuffer is ready */
 	}
 
 	greyscale_counter++;

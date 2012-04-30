@@ -8,17 +8,20 @@
  */
 extern void led_array_swap_buffer();
 
-extern void led_array_backbuffer_stream_rewind();
-
-extern void led_array_backbuffer_stream_write(uint8_t);
+/**
+ * led_array_backbuffer_free() - check if backbuffer is free for a new frame
+ */
+uint8_t led_array_backbuffer_free();
 
 /**
- * led_array_backbuffer_bit_set() - set a LED in backbuffer
- * @x:		x coordinate
- * @y:		y coordinate
- * @color:	color value
+ * led_array_backbuffer_stream_rewind() - set position for stream_write to 0, 0
  */
-extern void led_array_backbuffer_bit_set(uint8_t x, uint8_t y, uint8_t color);
+extern void led_array_backbuffer_stream_rewind();
+
+/**
+ * led_array_backbuffer_stream_write() - write a byte to backbuffer
+ */
+extern void led_array_backbuffer_stream_write(uint8_t);
 
 /**
  * led_array_draw() - draw led array
