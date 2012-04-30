@@ -57,7 +57,7 @@ void led_array_backbuffer_stream_rewind()
 
 void led_array_backbuffer_stream_write(uint8_t data)
 {
-	buffer[active_buffer][stream_y][stream_x] = data;
+	buffer[active_buffer^1][stream_y][stream_x] = data;
 
 	stream_x++;
 
@@ -173,21 +173,24 @@ void led_array_draw()
 		led_array_output_enable(1);
 	}
 
-	/* change buffers */
-	if (swap_request) {
-		swap_request = 0;
-		active_buffer ^= 1;
-		/* Wait for empty transmit buffer */
-		while (!(UCSR0A & (1<<UDRE0)))
-			;
-		/* Put data into buffer, sends the data */
-		UDR0 = 0xFE; /* send ack to signal that backbuffer is ready */
-	}
 
 	greyscale_counter++;
 
-	if (greyscale_counter == 8)
+	if (greyscale_counter == 8) {
+		/* change buffers */
+		if (swap_request) {
+			swap_request = 0;
+			active_buffer ^= 1;
+			/* Wait for empty transmit buffer */
+			while (!(UCSR0A & (1<<UDRE0)))
+				;
+			/* Put data into buffer, sends the data */
+			UDR0 = 0xFE; /* send ack to signal that backbuffer is ready */
+		}
 		greyscale_counter = 0;
+	}
+		
+		
 
 	/* last line delay, approx same time as 96 led shifts */
 	ASM_DELAY(wait,350);
