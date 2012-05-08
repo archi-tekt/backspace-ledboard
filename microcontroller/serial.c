@@ -1,7 +1,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#include "../protocol/serial.h"
+#include "../protocol/config.h"
 #include "led_array.h"
 #include "defines.h"
 

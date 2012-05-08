@@ -1,10 +1,8 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include "../protocol/config.h"
 #include "led_array.h"
 #include "defines.h"
-
-#define ARRAY_X_SIZE 96
-#define ARRAY_Y_SIZE 16
 
 /*
  * why macros, see:
