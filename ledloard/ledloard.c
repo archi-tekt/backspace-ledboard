@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -15,6 +16,11 @@
 /* create termios.h B<rate> constant from serial.h BAUDRATE */
 #define termios_baud_(rate) B ## rate
 #define termios_baud(rate) termios_baud_(rate)
+
+struct command {
+	uint8_t type;
+	uint8_t frame[ARRAY_Y_SIZE * ARRAY_X_SIZE];
+} __attribute__((packed));
 
 static struct termios old_term;
 
@@ -46,6 +52,32 @@ int serial_init(int fd)
 	return 0;
 }
 
+int serial_write(int fd, const struct command *cmd)
+{
+	static uint8_t led_buffer[ARRAY_Y_SIZE][ARRAY_X_SIZE * 2 / 8];
+	uint8_t ack;
+	int frame_index = 0;
+	int i, j, k;
+
+	for (i = 0; i < ARRAY_Y_SIZE; ++i) {
+		for (j = 0; j < ARRAY_X_SIZE * 2 / 8; ++j) {
+			uint8_t byte = cmd->frame[frame_index++] & 0x03;
+			for (k = 0; k < 3; ++k) {
+				byte <<= 2;
+				byte |= cmd->frame[frame_index++] & 0x03;
+			}
+			led_buffer[i][j] = byte;
+		}
+	}
+
+	if (write(fd, led_buffer, sizeof(led_buffer)) != sizeof(led_buffer))
+		return -1;
+	if (read(fd, &ack, sizeof(ack)) != ack)
+		return -1;
+	/* check if it's 0xFE */
+	return 0;
+}
+
 /**
  * net_init() - initialize server socket
  * @return:	server socket, -1 for error
@@ -53,30 +85,34 @@ int serial_init(int fd)
 int net_init()
 {
 	int ret;
+	int one = 1;
 	int sockfd;
 	struct addrinfo hints, *res, *p;
 
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
+	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
 	if ((ret = getaddrinfo(NULL, "1337", &hints, &res)) != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ret));
 		return -1;
 	}
 
-	for (p = res; p; p = res->ai_next) {
+	for (p = res; p; p = p->ai_next) {
 		if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
+			continue;
+		if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) == -1)
 			continue;
 		if (bind(sockfd, p->ai_addr, p->ai_addrlen) == 0)
 			break;
 		close(sockfd);
 	}
+	freeaddrinfo(res);
 	if (p == NULL) {
 		fprintf(stderr, "Unable to bind\n");
 		return -1;
 	}
 
-	freeaddrinfo(res);
 	if (listen(sockfd, 1) == -1)
 		return -1;
 	return sockfd;
@@ -84,11 +120,10 @@ int net_init()
 
 int main(int argc, char *argv[])
 {
-	uint8_t ack_buf;
-	uint8_t led_buffer[ARRAY_Y_SIZE][ARRAY_X_SIZE * 2 / 8];
-	uint8_t display_byte = 0;
-	int led_fd, sock_fd;
-	int i, j;
+	int led_fd, sock_fd, conn_fd;
+	uint8_t type;
+	struct command recv_buffer;
+	ssize_t recvd;
 
 	if (argc != 2) {
 		puts("Usage: ledlord <serial device>");
@@ -112,11 +147,22 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if (accept(sock_fd, NULL, NULL) == -1) {
-		perror("Unable to accept connection");
-		exit(1);
+	for (;;) {
+		if ((conn_fd = accept(sock_fd, NULL, NULL)) == -1) {
+			perror("Unable to accept connection");
+			continue;
+		}
+		for (;;) {
+			recvd = recv(conn_fd, &recv_buffer, sizeof(recv_buffer), MSG_WAITALL);
+			if (recvd == 0)
+				break;
+			if (recvd != sizeof(recv_buffer))
+				perror("recv");
+			serial_write(led_fd, &recv_buffer);
+			puts("frame written");
+		}
+		close(conn_fd);
 	}
-	puts("yay, client connected!");
 	close(sock_fd);
 	close(led_fd);
 	return 0;
