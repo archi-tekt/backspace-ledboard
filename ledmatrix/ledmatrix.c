@@ -10,7 +10,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#include "../ledboard/protocol/config.h"
+#include "../protocol/config.h"
 
 struct command {
 	uint8_t type;

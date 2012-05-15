@@ -61,10 +61,9 @@ int serial_write(int fd, const struct command *cmd)
 
 	for (i = 0; i < ARRAY_Y_SIZE; ++i) {
 		for (j = 0; j < ARRAY_X_SIZE * 2 / 8; ++j) {
-			uint8_t byte = cmd->frame[frame_index++] & 0x03;
-			for (k = 0; k < 3; ++k) {
-				byte <<= 2;
-				byte |= cmd->frame[frame_index++] & 0x03;
+			uint8_t byte = 0;
+			for (k = 0; k < 4; ++k) {
+				byte |= (cmd->frame[frame_index++] & 0x03) << (k*2);
 			}
 			led_buffer[i][j] = byte;
 		}
