@@ -10,12 +10,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#include "../protocol/config.h"
-
-struct command {
-	uint8_t type;
-	uint8_t frame[ARRAY_Y_SIZE][ARRAY_X_SIZE];
-} __attribute__((packed));
+#include <libedboard.h>
 
 struct matrix_item {
 	int is_space;
@@ -28,38 +23,10 @@ void matrix_item_rand(struct matrix_item *item)
 	item->length = rand() % ARRAY_Y_SIZE + 1; /* minimum length: 1 */
 }
 
-int ledloard_connect(const char *host)
-{
-	struct addrinfo hints, *res, *p;
-	int sockfd;
-	int ret;
-
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	if ((ret = getaddrinfo(host, "1337", &hints, &res)) != 0) {
-		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ret));
-		return -1;
-	}
-	for (p = res; p; p = p->ai_next) {
-		if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
-			continue;
-		if (connect(sockfd, p->ai_addr, p->ai_addrlen) == 0)
-			break;
-		close(sockfd);
-	}
-	freeaddrinfo(res);
-	if (p == NULL) {
-		fprintf(stderr, "Unable to connect to %s\n", host);
-		return -1;
-	}
-	return sockfd;
-}
-
 int main(int argc, char *argv[])
 {
 	struct matrix_item matrix[ARRAY_X_SIZE];
-	struct command cmd;
+	struct ledboard_command cmd;
 	struct timespec ts;
 	int sockfd;
 	int i;
@@ -68,7 +35,7 @@ int main(int argc, char *argv[])
 		puts("Usage: ledmatrix <ledloard host>");
 		exit(1);
 	}
-	if ((sockfd = ledloard_connect(argv[1])) == -1) {
+	if ((sockfd = ledboard_connect(argv[1])) == -1) {
 		exit(1);
 	}
 

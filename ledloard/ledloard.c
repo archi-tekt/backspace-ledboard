@@ -11,16 +11,12 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#include "../protocol/config.h"
+#include <libedboard.h>
+#include "../ledboard/defines.h"
 
 /* create termios.h B<rate> constant from serial.h BAUDRATE */
 #define termios_baud_(rate) B ## rate
 #define termios_baud(rate) termios_baud_(rate)
-
-struct command {
-	uint8_t type;
-	uint8_t frame[ARRAY_Y_SIZE * ARRAY_X_SIZE];
-} __attribute__((packed));
 
 static struct termios old_term;
 
@@ -52,18 +48,18 @@ int serial_init(int fd)
 	return 0;
 }
 
-int serial_write(int fd, const struct command *cmd)
+int serial_write(int fd, const struct ledboard_command *cmd)
 {
 	static uint8_t led_buffer[ARRAY_Y_SIZE][ARRAY_X_SIZE * 2 / 8];
 	uint8_t ack;
-	int frame_index = 0;
 	int i, j, k;
 
 	for (i = 0; i < ARRAY_Y_SIZE; ++i) {
+		int frame_index = 0;
 		for (j = 0; j < ARRAY_X_SIZE * 2 / 8; ++j) {
 			uint8_t byte = 0;
 			for (k = 0; k < 4; ++k) {
-				byte |= (cmd->frame[frame_index++] & 0x03) << (k*2);
+				byte |= (cmd->frame[i][frame_index++] & 0x03) << (k * 2);
 			}
 			led_buffer[i][j] = byte;
 		}
@@ -78,10 +74,10 @@ int serial_write(int fd, const struct command *cmd)
 }
 
 /**
- * net_init() - initialize server socket
+ * ledloard_server() - initialize server socket
  * @return:	server socket, -1 for error
  */
-int net_init()
+int ledloard_server(void)
 {
 	int ret;
 	int one = 1;
@@ -108,12 +104,14 @@ int net_init()
 	}
 	freeaddrinfo(res);
 	if (p == NULL) {
-		fprintf(stderr, "Unable to bind\n");
+		fprintf(stderr, "unable to bind\n");
 		return -1;
 	}
 
-	if (listen(sockfd, 1) == -1)
+	if (listen(sockfd, 1) == -1) {
+		perror("listen");
 		return -1;
+	}
 	return sockfd;
 }
 
@@ -121,7 +119,7 @@ int main(int argc, char *argv[])
 {
 	int led_fd, sock_fd, conn_fd;
 	uint8_t type;
-	struct command recv_buffer;
+	struct ledboard_command recv_buffer;
 	ssize_t recvd;
 
 	if (argc != 2) {
@@ -141,8 +139,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	if ((sock_fd = net_init()) == -1) {
-		perror("Unable to initialize server socket");
+	if ((sock_fd = ledloard_server()) == -1) {
 		exit(1);
 	}
 

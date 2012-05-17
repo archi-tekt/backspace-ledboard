@@ -1,6 +1,8 @@
 #ifndef DEFINES_H
 #define	DEFINES_H
 
+#define BAUDRATE 115200
+
 /* set CPU type; defined in makefile but helpful for autocomplete */
 #ifndef __AVR_ATmega168__
 #define __AVR_ATmega168__

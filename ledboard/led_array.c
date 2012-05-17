@@ -1,6 +1,6 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
-#include "../protocol/config.h"
+#include "../libedboard/libedboard.h"
 #include "led_array.h"
 #include "defines.h"
 
