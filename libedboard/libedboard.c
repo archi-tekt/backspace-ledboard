@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -34,4 +35,55 @@ int ledboard_connect(const char *host)
 		return -1;
 	}
 	return sockfd;
+}
+
+static ssize_t send_all(int fd, const void *buf, size_t len)
+{
+	ssize_t n;
+	while (len > 0) {
+		n = send(fd, buf, len, 0);
+		if (n == -1)
+			return -1;
+		buf += n;
+		len -= n;
+	}
+	return 0;
+}
+
+int ledboard_send_priority(int fd, enum ledboard_priority prio)
+{
+	uint8_t cmd[2];
+
+	if (prio < LB_PRIO_NORMAL || prio > LB_PRIO_GOD) {
+		errno = EINVAL;
+		return -1;
+	}
+	cmd[0] = LB_TYPE_PRIO;
+	cmd[1] = prio;
+	return send_all(fd, &cmd, sizeof(cmd));
+}
+
+int ledboard_send_raw(int fd, uint8_t frame[ARRAY_Y_SIZE][ARRAY_X_SIZE])
+{
+	uint8_t cmd;
+
+	cmd = LB_TYPE_RAW;
+	if (send_all(fd, &cmd, sizeof(cmd)) == -1)
+		return -1;
+	return send_all(fd, frame, sizeof(uint8_t) * ARRAY_Y_SIZE * ARRAY_X_SIZE);
+}
+
+int ledboard_send_pixel(int fd, uint8_t x, uint8_t y, enum ledboard_color color)
+{
+	uint8_t cmd[4];
+
+	if (x >= ARRAY_X_SIZE || y >= ARRAY_X_SIZE || color > 3) {
+		errno = EINVAL;
+		return -1;
+	}
+	cmd[0] = LB_TYPE_SETXY;
+	cmd[1] = x;
+	cmd[2] = y;
+	cmd[3] = color;
+	return send_all(fd, cmd, sizeof(cmd));
 }
