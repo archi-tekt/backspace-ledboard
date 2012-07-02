@@ -1,6 +1,10 @@
 * Multiplexer auf kleinen Platine oben ist kaputt
 	74HC138N
+	-> thx schinken, im Moment an den anderen gebrückt.
 * Darlingtransistor
 	TIP127
+	-> scheint nicht kaputt zu sein
 
 * SN74HC245N
+	-> auf ebay bestellt. Sollte für die Helligkeitsunterschiede
+		auf dem 2. Board verantwortlich sein.
