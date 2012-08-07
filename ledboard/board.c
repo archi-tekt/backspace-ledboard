@@ -48,8 +48,6 @@ void init()
 
 int main()
 {
-	int i;
-
 	/* init hw */
 	init();
 	uart_init();

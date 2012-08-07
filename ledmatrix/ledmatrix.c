@@ -26,7 +26,7 @@ void matrix_item_rand(struct matrix_item *item)
 int main(int argc, char *argv[])
 {
 	struct matrix_item matrix[ARRAY_X_SIZE];
-	struct ledboard_command cmd;
+	uint8_t frame[ARRAY_Y_SIZE][ARRAY_X_SIZE];
 	struct timespec ts;
 	int sockfd;
 	int i;
@@ -39,8 +39,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	memset(&cmd, 0, sizeof(cmd));
-	cmd.type = 0x00; /* send raw frame */
+	memset(frame, 0, sizeof(frame));
 
 	ts.tv_sec = 0;
 	ts.tv_nsec = 150 * 1000 * 1000;
@@ -51,7 +50,7 @@ int main(int argc, char *argv[])
 	}
 	for (;;) {
 		/* scroll rows down */
-		memmove(cmd.frame[1], cmd.frame[0], (ARRAY_Y_SIZE - 1) * ARRAY_X_SIZE);
+		memmove(frame[1], frame[0], (ARRAY_Y_SIZE - 1) * ARRAY_X_SIZE);
 
 		/* fill first row */
 		for (i = 0; i < ARRAY_X_SIZE; ++i) {
@@ -69,11 +68,12 @@ int main(int argc, char *argv[])
 			} else {
 				color = rand() % 2 + 1;
 			}
-			cmd.frame[0][i] = color;
+			frame[0][i] = color;
 			matrix[i].length--;
 		}
-		if (send(sockfd, &cmd, sizeof(cmd), 0) != sizeof(cmd))
-			perror("send");
+		if (ledboard_send_raw(sockfd, frame) == -1) {
+			perror("ledboard_send_frame");
+		}
 		nanosleep(&ts, NULL);
 	}
 	close(sockfd);

@@ -2,6 +2,7 @@
 #define	DEFINES_H
 
 #define BAUDRATE 115200
+#define ACK_BYTE 0xFE
 
 /* set CPU type; defined in makefile but helpful for autocomplete */
 #ifndef __AVR_ATmega168__
