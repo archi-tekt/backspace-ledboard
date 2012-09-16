@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 #include <stddef.h>
 
@@ -23,6 +24,11 @@
 
 #define CLIENT_MAX 10
 #define CLIENT_BUFFER_SIZE 2048 /* size for ~1 frame */
+
+/* number of seconds that a client with normal priority has if
+ * is more than one client */
+#define SCHED_TIME_SEC 10
+#define NR_PRIORITIES 3 /* mh, I don't like that #define */
 
 enum ledloard_client_state {
 	IDLE,
@@ -38,8 +44,12 @@ struct ledloard_client {
 	struct ledloard *loard;
 	enum ledboard_priority prio;
 	enum ledloard_client_state state;
+
 	uint8_t input_buffer[CLIENT_BUFFER_SIZE];
-	size_t write_idx; /* write position in input_buffer */
+	size_t write_idx;			/* write position in input_buffer */
+
+	time_t start_time;			/* timestamp when scheduled */
+	struct ledloard_client **sched_entry;	/* pointer to entry in scheduler array */
 };
 
 struct ledloard {
@@ -47,11 +57,13 @@ struct ledloard {
 	int led_fd;
 	struct termios term_backup;
 
-	enum ledboard_priority highest_prio;
 	struct pollfd pollfds[CLIENT_MAX + 1]; /* +1 for sock_fd */
 	struct ledloard_client clients[CLIENT_MAX];
 	size_t nr_clients;
 	nfds_t nr_pollfds;
+
+	/* one NULL terminated array of pointers to clients for each priority */
+	struct ledloard_client *scheduler[NR_PRIORITIES][CLIENT_MAX + 1];
 };
 
 /**
@@ -184,9 +196,116 @@ int ledloard_init(struct ledloard *loard, const char *ledboard, const char *port
 	loard->pollfds[0].events = POLLIN;
 	loard->nr_pollfds = 1;
 
-	loard->highest_prio = LB_PRIO_NORMAL;
 	loard->nr_clients = 0;
+	memset(loard->scheduler, 0, sizeof(loard->scheduler));
 	return 0;
+}
+
+int prio_idx(enum ledboard_priority prio)
+{
+	switch (prio) {
+	case LB_PRIO_NORMAL:
+		return 0;
+	case LB_PRIO_URGENT:
+		return 1;
+	case LB_PRIO_GOD:
+		return 2;
+	default:
+		return -1;
+	}
+}
+
+/**
+ * scheduler_client_add() - append pointer to priority array and fill in back pointer
+ */
+void scheduler_client_add(struct ledloard_client *c)
+{
+	struct ledloard_client **p;
+	printf("added client %d to scheduler array %d\n", c->fd, prio_idx(c->prio));
+	for (p = c->loard->scheduler[prio_idx(c->prio)]; *p; p++)
+		/* nothing */;
+	*p = c;
+	c->sched_entry = p;
+}
+
+/**
+ * scheduler_moveup() - move up all clients up, starting (and overwriting) from c
+ * @return: pointer to last entry (that is now free)
+ */
+inline struct ledloard_client **scheduler_moveup(struct ledloard_client **c)
+{
+	for (; *(c + 1); c++) {
+		*c = *(c + 1);
+		(*c)->sched_entry = c; /* update back pointer */
+	}
+	*c = NULL;
+	return c;
+}
+
+/**
+ * scheduler_client_remove() - remove pointer from priority array
+ */
+void scheduler_client_remove(struct ledloard_client *c)
+{
+	/* fill the gap by moving the other pointers */
+	scheduler_moveup(c->sched_entry);
+}
+
+void scheduler_client_update_prio(struct ledloard_client *c)
+{
+	scheduler_client_remove(c);
+	scheduler_client_add(c);
+}
+
+/**
+ * scheduler_client_update() - update the client pointer
+ * @c:   actual client
+ * @new: new location of client
+ */
+void scheduler_client_update(struct ledloard_client *c, struct ledloard_client *new)
+{
+	struct ledloard_client **entry = c->sched_entry;
+	*entry = new;
+}
+
+inline bool capo_time_over(struct ledloard_client *c)
+{
+	return c->start_time + SCHED_TIME_SEC < time(NULL);
+}
+
+/**
+ * scheduler_capo() - get client that is the boss atm :-)
+ */
+struct ledloard_client *scheduler_capo(struct ledloard *loard)
+{
+	struct ledloard_client *capo = NULL;
+	int prio;
+
+	for (prio = prio_idx(LB_PRIO_GOD); prio >= 0; prio--) {
+		struct ledloard_client **prios = loard->scheduler[prio];
+		if (!prios[0])   /* no client in this priority, try next one */
+			continue;
+		if (prios[1]) {  /* another one with this priority? */
+			if (prios[0]->start_time && capo_time_over(prios[0])) {
+				struct ledloard_client *oldcapo = prios[0];
+				struct ledloard_client **queueback;
+				/* put first one (old capo) to the last position
+				 * and move the others one up. Then update back pointer
+				 * of last one. (The others are updated by scheduler_moveup()
+				 */
+				queueback = scheduler_moveup(&prios[0]);
+				oldcapo->start_time = 0;
+				oldcapo->sched_entry = queueback;
+				*queueback = oldcapo;
+			}
+		}
+		capo = prios[0];
+		if (!capo->start_time)
+			capo->start_time = time(NULL);
+		return capo;
+	}
+
+	return NULL;
 }
 
 int ledloard_client_add(struct ledloard *loard, int fd)
@@ -208,6 +327,8 @@ int ledloard_client_add(struct ledloard *loard, int fd)
 	pfd = &loard->pollfds[loard->nr_pollfds++];
 	pfd->fd = fd;
 	pfd->events = POLLIN | POLLPRI;
+
+	scheduler_client_add(c);
 	return 0;
 }
 
@@ -217,11 +338,16 @@ int client_remove(struct ledloard_client *c)
 	unsigned client_idx;
 	int fd = c->fd;
 
+	scheduler_client_remove(c);
+
 	/* if this client is not the last client in our array, we have to fill
 	 * the gap by coping the last client to this position in both arrays,
 	 * the client array and the corresponding pollfds array */
 	client_idx = c - loard->clients;
 	if (client_idx != loard->nr_clients - 1) {
+		/* update pointer in scheduler because we're moving :) */
+		scheduler_client_update(&loard->clients[loard->nr_clients - 1],
+					&loard->clients[client_idx]);
 		loard->clients[client_idx] = loard->clients[loard->nr_clients - 1];
 		loard->pollfds[client_idx + 1] = loard->pollfds[loard->nr_pollfds - 1];
 	}
@@ -235,20 +361,21 @@ void client_prio_set(struct ledloard_client *c, uint8_t prio)
 	if (prio == LB_PRIO_NORMAL || prio == LB_PRIO_URGENT || prio == LB_PRIO_GOD) {
 		printf("[client %d]: prio set!\n", c->fd);
 		c->prio = prio;
+		scheduler_client_update_prio(c);
 	}
-
-	if (c->prio > c->loard->highest_prio)
-		c->loard->highest_prio = prio;
 }
 
 void ledloard_handle_frame(struct ledloard *loard, struct ledloard_client *c,
 					uint8_t frame[ARRAY_Y_SIZE][ARRAY_X_SIZE])
 {
-	if (c->prio >= loard->highest_prio) {
+	/* check if client is the actual capo */
+	if (c == scheduler_capo(loard)) {
 		uint8_t ack = 0xF0;
 		ledboard_write(loard->led_fd, frame);
 		printf("[client %d]: frame written!\n", c->fd);
-		write(c->fd, &ack, sizeof(ack));
+//		write(c->fd, &ack, sizeof(ack));
+	} else {
+		printf("[client %d]: gtfo, you're not capo!\n", c->fd);
 	}
 }
 
