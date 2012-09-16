@@ -226,6 +226,7 @@ void scheduler_client_add(struct ledloard_client *c)
 		/* nothing */;
 	*p = c;
 	c->sched_entry = p;
+	c->start_time = 0;
 }
 
 /**
