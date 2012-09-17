@@ -7,9 +7,9 @@
 #define UBRR_VAL ((F_CPU+BAUDRATE*8)/(BAUDRATE*16)-1)
 #define BAUD_REAL (F_CPU/(16*(UBRR_VAL+1)))
 #define BAUD_ERROR ((BAUD_REAL*1000)/BAUDRATE)
- 
+
 #if ((BAUD_ERROR<990) || (BAUD_ERROR>1010))
-	#error Systematischer Fehler der Baudrate grösser 1% und damit zu hoch! 
+	#error Systematischer Fehler der Baudrate grösser 1% und damit zu hoch!
 #endif
 
 /**
@@ -32,7 +32,6 @@ void uart_init()
 
 	/* enable tx + rx, rx interrupts */
 	UCSR0B = (1 << TXEN0) | (1 << RXEN0) | (1 << RXCIE0);
-	
 }
 
 ISR(USART_RX_vect)

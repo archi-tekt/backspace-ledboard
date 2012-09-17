@@ -24,10 +24,10 @@ enum draw_type {
  * - right side of board is where µC is located
  * - buffer starts with top (row 0) most left pixel (2 bits)
  * - next is the second pixel from left (still row 0)
- * 
+ *
  * - double buffering, data is written to backbuffer while read
  *   is done on frontbuffer
- * 
+ *
  * TODO: buffer needs to be read-accessed very fast, if needed -> rearrange
  */
 static uint8_t buffer[2][ARRAY_Y_SIZE][ARRAY_X_SIZE * 2 / 8];
@@ -190,5 +190,5 @@ void led_array_draw()
 	/* last line delay, approx same time as 96 led shifts */
 	ASM_DELAY(wait,350);
 
-	led_array_output_enable(0); 
+	led_array_output_enable(0);
 }

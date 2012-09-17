@@ -20,7 +20,7 @@
 
 #define ASM_DELAY(var, count) {for(var = 0; var < count; var++ ) asm volatile("nop");}
 
-/* 
+/*
  * definition of output signals
  * C name - PCB name - description
  * ENABLE - HE - global signal to en- or disable output to LEDs
