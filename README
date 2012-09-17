@@ -28,7 +28,7 @@ ledboard:
     *
     *
 
-ledlord:
+ledloard:
     * serial communication with ledboard
     * listens for incoming display requests on port 1337
 
