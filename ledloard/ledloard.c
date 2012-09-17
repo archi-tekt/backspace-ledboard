@@ -28,7 +28,6 @@
 /* number of seconds that a client with normal priority has if
  * is more than one client */
 #define SCHED_TIME_SEC 10
-#define NR_PRIORITIES 3 /* mh, I don't like that #define */
 
 enum ledloard_client_state {
 	IDLE,
@@ -63,7 +62,7 @@ struct ledloard {
 	nfds_t nr_pollfds;
 
 	/* one NULL terminated array of pointers to clients for each priority */
-	struct ledloard_client *scheduler[NR_PRIORITIES][CLIENT_MAX + 1];
+	struct ledloard_client *scheduler[LB_PRIO_GOD - LB_PRIO_NORMAL + 1][CLIENT_MAX + 1];
 };
 
 /**
@@ -203,16 +202,10 @@ int ledloard_init(struct ledloard *loard, const char *ledboard, const char *port
 
 int prio_idx(enum ledboard_priority prio)
 {
-	switch (prio) {
-	case LB_PRIO_NORMAL:
-		return 0;
-	case LB_PRIO_URGENT:
-		return 1;
-	case LB_PRIO_GOD:
-		return 2;
-	default:
-		return -1;
-	}
+	if (prio >= LB_PRIO_NORMAL && prio <= LB_PRIO_GOD)
+		return prio - LB_PRIO_NORMAL;
+
+	return -1;
 }
 
 /**
@@ -366,7 +359,7 @@ void client_prio_set(struct ledloard_client *c, uint8_t prio)
 	}
 }
 
-void ledloard_handle_frame(struct ledloard *loard, struct ledloard_client *c,
+void ledloard_frame_handle(struct ledloard *loard, struct ledloard_client *c,
 					uint8_t frame[ARRAY_Y_SIZE][ARRAY_X_SIZE])
 {
 	/* check if client is the actual capo */
@@ -427,7 +420,7 @@ int client_handle(struct ledloard_client *c)
 			c->state = IDLE;
 			break;
 		case RECEIVING_FRAME:
-			ledloard_handle_frame(c->loard, c, (uint8_t(*)[ARRAY_X_SIZE])read_pos);
+			ledloard_frame_handle(c->loard, c, (uint8_t(*)[ARRAY_X_SIZE])read_pos);
 			c->state = IDLE;
 			break;
 		}
