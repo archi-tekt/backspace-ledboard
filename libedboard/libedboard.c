@@ -66,6 +66,13 @@ int ledboard_send_priority(int fd, enum ledboard_priority prio)
 int ledboard_send_raw(int fd, uint8_t frame[ARRAY_Y_SIZE][ARRAY_X_SIZE])
 {
 	uint8_t cmd;
+	uint8_t ready;
+
+	/* block until we've read the ready byte */
+	if (read(fd, &ready, 1) != 1)
+		return -1;
+	if (ready != LB_TYPE_READY)
+		return -1;
 
 	cmd = LB_TYPE_RAW;
 	if (send_all(fd, &cmd, sizeof(cmd)) == -1)

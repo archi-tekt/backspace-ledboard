@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 		if (ledboard_send_raw(sockfd, frame) == -1) {
 			perror("ledboard_send_frame");
 		}
-		nanosleep(&ts, NULL);
+//		nanosleep(&ts, NULL);
 	}
 	close(sockfd);
 	return 0;
