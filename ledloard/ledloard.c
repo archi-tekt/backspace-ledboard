@@ -101,36 +101,36 @@ int ledboard_init(const char *ledboard, struct termios *term_backup)
  */
 int ledboard_write(int fd, uint8_t frame[ARRAY_Y_SIZE][ARRAY_X_SIZE])
 {
-        static uint8_t led_buffer[ARRAY_Y_SIZE][ARRAY_X_SIZE * 2 / 8];
-        uint8_t ack;
-        int i, j, k;
+	static uint8_t led_buffer[ARRAY_Y_SIZE][ARRAY_X_SIZE * 2 / 8];
+	uint8_t ack;
+	int i, j, k;
 
-        for (i = 0; i < ARRAY_Y_SIZE; i++) {
-                int frame_index = 0;
-                for (j = 0; j < ARRAY_X_SIZE * 2 / 8; ++j) {
-                        uint8_t byte = 0;
-                        for (k = 0; k < 4; ++k) {
-                                byte |= (frame[i][frame_index++] & 0x03) << (k * 2);
-                        }
-                        led_buffer[i][j] = byte;
-                }
-        }
+	for (i = 0; i < ARRAY_Y_SIZE; i++) {
+		int frame_index = 0;
+		for (j = 0; j < ARRAY_X_SIZE * 2 / 8; ++j) {
+			uint8_t byte = 0;
+			for (k = 0; k < 4; ++k) {
+				byte |= (frame[i][frame_index++] & 0x03) << (k * 2);
+			}
+			led_buffer[i][j] = byte;
+		}
+	}
 
-        if (write(fd, led_buffer, sizeof(led_buffer)) != sizeof(led_buffer))
-                return -1;
-        if (read(fd, &ack, sizeof(ack)) != ack)
-                return -1;
-        if (ack != 0xFE)
-                return -1;
-        return 0;
+	if (write(fd, led_buffer, sizeof(led_buffer)) != sizeof(led_buffer))
+		return -1;
+	if (read(fd, &ack, sizeof(ack)) != ack)
+		return -1;
+	if (ack != 0xFE)
+		return -1;
+	return 0;
 }
 
 int sock_nonblock(int fd)
 {
-        int flags = fcntl(fd, F_GETFL, 0);
-        if (flags == -1)
-                flags = 0;
-        return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+	int flags = fcntl(fd, F_GETFL, 0);
+	if (flags == -1)
+		flags = 0;
+	return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
 /**
@@ -139,44 +139,44 @@ int sock_nonblock(int fd)
  */
 int server_init(const char *port)
 {
-        int ret;
-        int one = 1;
-        int sockfd;
-        struct addrinfo hints, *res, *p;
+	int ret;
+	int one = 1;
+	int sockfd;
+	struct addrinfo hints, *res, *p;
 
-        memset(&hints, 0, sizeof(hints));
-        hints.ai_family = AF_UNSPEC;
-        hints.ai_socktype = SOCK_STREAM;
-        hints.ai_flags = AI_PASSIVE;
-        if ((ret = getaddrinfo(NULL, port, &hints, &res)) != 0) {
-                fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ret));
-                return -1;
-        }
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
+	if ((ret = getaddrinfo(NULL, port, &hints, &res)) != 0) {
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ret));
+		return -1;
+	}
 
-        for (p = res; p; p = p->ai_next) {
-                if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
-                        continue;
-                if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) == -1)
-                        continue;
-                if (bind(sockfd, p->ai_addr, p->ai_addrlen) == 0)
-                        break;
-                close(sockfd);
-        }
-        freeaddrinfo(res);
-        if (p == NULL) {
-                fprintf(stderr, "unable to bind\n");
-                return -1;
-        }
+	for (p = res; p; p = p->ai_next) {
+		if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
+			continue;
+		if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) == -1)
+			continue;
+		if (bind(sockfd, p->ai_addr, p->ai_addrlen) == 0)
+			break;
+		close(sockfd);
+	}
+	freeaddrinfo(res);
+	if (p == NULL) {
+		fprintf(stderr, "unable to bind\n");
+		return -1;
+	}
 
-        if (listen(sockfd, 1) == -1) {
-                perror("unable to listen");
-                return -1;
-        }
-        if (sock_nonblock(sockfd) == -1) {
-                perror("sock_nonblock");
-                return -1;
-        }
-        return sockfd;
+	if (listen(sockfd, 1) == -1) {
+		perror("unable to listen");
+		return -1;
+	}
+	if (sock_nonblock(sockfd) == -1) {
+		perror("sock_nonblock");
+		return -1;
+	}
+	return sockfd;
 }
 
 /**
@@ -200,11 +200,11 @@ int ledloard_init(struct ledloard *loard, const char *ledboard, const char *port
 	return 0;
 }
 
+#define prio_valid(p) ((p) >= LB_PRIO_NORMAL && (p) <= LB_PRIO_GOD)
 int prio_idx(enum ledboard_priority prio)
 {
-	if (prio >= LB_PRIO_NORMAL && prio <= LB_PRIO_GOD)
+	if (prio_valid(prio))
 		return prio - LB_PRIO_NORMAL;
-
 	return -1;
 }
 
@@ -214,7 +214,6 @@ int prio_idx(enum ledboard_priority prio)
 void scheduler_client_add(struct ledloard_client *c)
 {
 	struct ledloard_client **p;
-	printf("added client %d to scheduler array %d\n", c->fd, prio_idx(c->prio));
 	for (p = c->loard->scheduler[prio_idx(c->prio)]; *p; p++)
 		/* nothing */;
 	*p = c;
@@ -352,8 +351,7 @@ int client_remove(struct ledloard_client *c)
 
 void client_prio_set(struct ledloard_client *c, uint8_t prio)
 {
-	if (prio == LB_PRIO_NORMAL || prio == LB_PRIO_URGENT || prio == LB_PRIO_GOD) {
-		printf("[client %d]: prio set!\n", c->fd);
+	if (prio_valid(prio)) {
 		c->prio = prio;
 		scheduler_client_update_prio(c);
 	}
