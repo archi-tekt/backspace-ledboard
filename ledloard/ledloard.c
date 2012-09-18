@@ -34,6 +34,7 @@ enum ledloard_client_state {
 	RECEIVING_PRIO,
 	RECEIVING_FRAME
 };
+
 /* the number of bytes we want to read in each state.
  * we'll use ledloard_client_state as index */
 size_t client_state_wants[] = { 1, 1, ARRAY_X_SIZE * ARRAY_Y_SIZE };
@@ -43,6 +44,7 @@ struct ledloard_client {
 	struct ledloard *loard;
 	enum ledboard_priority prio;
 	enum ledloard_client_state state;
+	bool ready_sent;
 
 	uint8_t input_buffer[CLIENT_BUFFER_SIZE];
 	size_t write_idx;			/* write position in input_buffer */
@@ -63,6 +65,7 @@ struct ledloard {
 
 	/* one NULL terminated array of pointers to clients for each priority */
 	struct ledloard_client *scheduler[LB_PRIO_GOD - LB_PRIO_NORMAL + 1][CLIENT_MAX + 1];
+	struct ledloard_client *capo;
 };
 
 /**
@@ -197,6 +200,7 @@ int ledloard_init(struct ledloard *loard, const char *ledboard, const char *port
 
 	loard->nr_clients = 0;
 	memset(loard->scheduler, 0, sizeof(loard->scheduler));
+	loard->capo = NULL;
 	return 0;
 }
 
@@ -314,6 +318,7 @@ int ledloard_client_add(struct ledloard *loard, int fd)
 	c->loard = loard;
 	c->prio = LB_PRIO_NORMAL;
 	c->state = IDLE;
+	c->ready_sent = false;
 	c->write_idx = 0;
 
 	/* add client fd to pollfds */
@@ -361,14 +366,11 @@ void ledloard_frame_handle(struct ledloard *loard, struct ledloard_client *c,
 					uint8_t frame[ARRAY_Y_SIZE][ARRAY_X_SIZE])
 {
 	/* check if client is the actual capo */
-	if (c == scheduler_capo(loard)) {
-		uint8_t ack = 0xF0;
+	if (c == loard->capo && c->ready_sent) {
 		ledboard_write(loard->led_fd, frame);
 		printf("[client %d]: frame written!\n", c->fd);
-//		write(c->fd, &ack, sizeof(ack));
-	} else {
-		printf("[client %d]: gtfo, you're not capo!\n", c->fd);
 	}
+	c->ready_sent = false;
 }
 
 inline bool message_in_buf(struct ledloard_client *c, const uint8_t *read_pos)
@@ -445,6 +447,14 @@ int ledloard_run(struct ledloard *loard, int timeout)
 {
 	size_t i;
 	int nr_active;
+
+	loard->capo = scheduler_capo(loard);
+	if (loard->capo && !loard->capo->ready_sent) {
+		uint8_t ready = LB_TYPE_READY;
+		write(loard->capo->fd, &ready, sizeof(ready));
+		loard->capo->ready_sent = true;
+		printf("[client %d]: ready sent!\n", loard->capo->fd);
+	}
 
 	nr_active = poll(loard->pollfds, loard->nr_pollfds, timeout);
 	if (nr_active < 1)

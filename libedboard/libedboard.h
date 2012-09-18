@@ -21,7 +21,8 @@ enum ledboard_types {
 	LB_TYPE_RAW = 0xA1,
 	LB_TYPE_PRIO,
 	LB_TYPE_SETXY,
-	LB_TYPE_ASCII
+	LB_TYPE_ASCII,
+	LB_TYPE_READY
 };
 
 /**
