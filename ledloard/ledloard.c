@@ -18,6 +18,8 @@
 #include <libedboard.h>
 #include "../ledboard/defines.h"
 
+#define LEDLOARD_VERSION "0.1"
+
 /* create termios.h B<rate> constant from defines.h BAUDRATE */
 #define termios_baud_(rate) B ## rate
 #define termios_baud(rate) termios_baud_(rate)
@@ -506,10 +508,14 @@ int main(int argc, char *argv[])
 	struct ledloard loard;
 
 	if (argc != 2) {
-		puts("Usage: ledloard <serial device>");
+		puts("Usage: ledloard [-v] <serial device>\n"
+		     "       -v  print version");
 		exit(1);
 	}
-
+	if (strcmp(argv[1], "-v") == 0) {
+		puts(LEDLOARD_VERSION);
+		exit(0);
+	}
 	if (ledloard_init(&loard, argv[1], "1337") == -1) {
 		perror("Unable to initialize ledloard");
 		exit(1);
