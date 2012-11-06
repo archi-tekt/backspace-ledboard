@@ -1,6 +1,9 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include "../libedboard/libedboard.h"
 #include "led_array.h"
+
+#include "defines.h"
 
 void init()
 {
@@ -51,6 +54,9 @@ int main()
 	/* init hw */
 	init();
 	uart_init();
+
+	/* sent one ack in the beginnging for power up scenarios */
+	UDR0 = ACK_BYTE;
 
 	/* remaining stuff is irq driven */
 //	uart_test();
