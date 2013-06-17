@@ -76,10 +76,9 @@ void led_array_backbuffer_stream_write(uint8_t data)
 static __attribute__((always_inline)) uint8_t led_array_frontbuffer_bit_get(uint8_t x, uint8_t *line_data)
 {
 	uint8_t x_offset = x >> 2; /* was: (x * 2) / 8 */
-	uint8_t x_shift = (6 - ((x *2) % 8));
-
 	uint8_t val = line_data[x_offset];
-	val >>= x_shift;
+
+	val >>= (6 - ((x<<1) & 0x07)); // &0x07 is the same as %8, <<1 instead of *2
 
 	return val & 3;
 }
